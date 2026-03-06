@@ -58,6 +58,20 @@ ANTI-HALLUCINATION RULES:
 7. For verified: false items set verified_note to a brief explanation (e.g. "Local night market recommendation — agent should confirm current operating days").
 8. For verified: true items set verified_note to null.
 
+OUTPUT STRUCTURE RULES:
+- Each day MUST have a schedule array with time blocks: Morning, Afternoon, Evening.
+- Each schedule block is ONE activity or meal or transfer — not a paragraph of mixed events.
+- activity_narrative: write like a high-end travel magazine. Sensory, evocative, specific insider tips.
+- ticketing_and_logistics: NEVER write filler like "enjoy the ride". You MUST state: who books the ticket (agent pre-books / client self-books / no booking needed), how far in advance, exact transit method and duration, approximate cost tier (budget/mid/premium). Example: "Agent must pre-book Shinkansen reserved seats at least 3 days in advance via JR Pass or official JR website. Journey: Tokyo to Kyoto, approx 2h15m, premium reserved carriage recommended for families."
+- demographic_catering_note: ALWAYS populate this if infants, toddlers, seniors, or mobility-restricted travelers are present. State stroller accessibility, elevator availability, rest stop locations, feeding room availability. If no special demographics, set to null.
+- flight_disclaimer: populate ONLY on Day 1 and the final day. State arrival/departure logistics clearly. Null for all other days.
+
+SCORING RULES (day_metrics):
+- fatigue_level: 1=very relaxed, 10=exhausting. A day with 3 walking tours + intercity travel = 8+. A spa day = 2.
+- cultural_score: 1=no cultural content, 10=deeply immersive cultural day.
+- adventure_score: 1=no adventure, 10=full adventure day.
+- occasion_conformity: how well this specific day serves the stated occasion. If occasion is Honeymoon and day has a private romantic dinner at sunset = 9. If same day has a crowded group museum tour = 4.
+
 SELF-CHECK BEFORE FINALISING (MANDATORY):
 Before outputting JSON, silently verify:
 1. Every activity is in a city that was explicitly selected by the user.
@@ -82,27 +96,41 @@ export const ITINERARY_SCHEMA = {
           properties: {
             day: { type: "integer" },
             title: { type: "string" },
-            description: { type: "string" },
             hotel: { type: ["string", "null"] },
             meals_included: { type: ["string", "null"] },
-            activities: {
+            flight_disclaimer: { type: ["string", "null"] },
+            day_metrics: {
+              type: "object",
+              properties: {
+                fatigue_level: { type: "integer" },
+                cultural_score: { type: "integer" },
+                adventure_score: { type: "integer" },
+                occasion_conformity: { type: "integer" }
+              },
+              required: ["fatigue_level", "cultural_score", "adventure_score", "occasion_conformity"],
+              additionalProperties: false
+            },
+            schedule: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
-                  name: { type: "string" },
-                  maps_link: { type: ["string", "null"] },
+                  time_block: { type: "string" },
+                  activity_title: { type: "string" },
+                  activity_narrative: { type: "string" },
+                  ticketing_and_logistics: { type: "string" },
+                  demographic_catering_note: { type: ["string", "null"] },
                   verified: { type: "boolean" },
                   verified_note: { type: ["string", "null"] },
-                  duration_mins: { type: ["integer", "null"] },
-                  notes: { type: ["string", "null"] }
+                  maps_link: { type: ["string", "null"] },
+                  duration_mins: { type: ["integer", "null"] }
                 },
-                required: ["name", "maps_link", "verified", "verified_note", "duration_mins", "notes"],
+                required: ["time_block", "activity_title", "activity_narrative", "ticketing_and_logistics", "demographic_catering_note", "verified", "verified_note", "maps_link", "duration_mins"],
                 additionalProperties: false
               }
             }
           },
-          required: ["day", "title", "description", "hotel", "meals_included", "activities"],
+          required: ["day", "title", "hotel", "meals_included", "flight_disclaimer", "day_metrics", "schedule"],
           additionalProperties: false
         }
       }

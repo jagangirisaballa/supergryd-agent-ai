@@ -9,22 +9,41 @@ import PaxSelector from '../../components/PaxSelector'
 import BudgetSelector from '../../components/BudgetSelector'
 import GeneratingScreen from '../../components/GeneratingScreen'
 
-interface Activity {
-  name: string
-  maps_link: string | null
+interface ScheduleBlock {
+  time_block: string
+  activity_title: string
+  activity_narrative: string
+  ticketing_and_logistics: string
+  demographic_catering_note: string | null
   verified: boolean
   verified_note: string | null
+  maps_link: string | null
   duration_mins: number | null
-  notes: string | null
+}
+
+interface DayMetrics {
+  fatigue_level: number
+  cultural_score: number
+  adventure_score: number
+  occasion_conformity: number
 }
 
 interface DayPlan {
   day: number
   title: string
-  description: string
   hotel: string | null
   meals_included: string | null
-  activities: Activity[]
+  flight_disclaimer: string | null
+  day_metrics: DayMetrics
+  schedule: ScheduleBlock[]
+}
+
+interface OverallMetrics {
+  trust_score: number
+  avg_fatigue: number
+  total_activities: number
+  verified_count: number
+  unverified_count: number
 }
 
 interface Itinerary {
@@ -32,6 +51,7 @@ interface Itinerary {
   duration_days: number
   pax_summary: string
   itinerary: DayPlan[]
+  overall_metrics: OverallMetrics
 }
 
 export default function ItineraryGenerator() {
@@ -80,15 +100,16 @@ export default function ItineraryGenerator() {
         }),
       })
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Generation failed. Please try again.')
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        setError(data.error ?? 'Generation failed. Please try again.')
+        return
       }
 
-      const data = await res.json()
       setResult(data.itinerary)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -138,12 +159,6 @@ export default function ItineraryGenerator() {
             <BudgetSelector value={budget} onChange={setBudget} />
           </div>
 
-          {error && (
-            <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
@@ -153,6 +168,23 @@ export default function ItineraryGenerator() {
           </button>
         </form>
       </div>
+
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-700 mb-0.5">Generation failed</p>
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setError(''); setLoading(false); }}
+            className="flex-shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
 
       {/* Loading state */}
       {loading && (
@@ -183,17 +215,82 @@ export default function ItineraryGenerator() {
             </div>
           </div>
 
+          {/* Overall metrics bar */}
+          {result.overall_metrics && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4 flex flex-wrap gap-5 items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Trust Score</span>
+                <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full ${
+                  result.overall_metrics.trust_score >= 80
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : result.overall_metrics.trust_score >= 60
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {result.overall_metrics.trust_score}%
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Avg Fatigue</span>
+                <span className="text-sm font-bold text-slate-700">{result.overall_metrics.avg_fatigue}/10</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Activities</span>
+                <span className="text-sm font-bold text-slate-700">{result.overall_metrics.total_activities}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                  ✅ {result.overall_metrics.verified_count} verified
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                  ⚠️ {result.overall_metrics.unverified_count} unverified
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Day cards */}
           {result.itinerary.map((day) => (
             <div key={day.day} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+              {/* Flight disclaimer banner */}
+              {day.flight_disclaimer && (
+                <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-start gap-2 text-xs text-amber-800">
+                  <span className="flex-shrink-0">✈️</span>
+                  <span>{day.flight_disclaimer}</span>
+                </div>
+              )}
+
               {/* Day header */}
               <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-start gap-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
                   {day.day}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-800">{day.title}</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">{day.description}</p>
+                  {/* Day metrics pills */}
+                  {day.day_metrics && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        day.day_metrics.fatigue_level <= 3
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : day.day_metrics.fatigue_level <= 6
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        Fatigue {day.day_metrics.fatigue_level}/10
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                        Cultural {day.day_metrics.cultural_score}/10
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                        Adventure {day.day_metrics.adventure_score}/10
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                        Occasion Match {day.day_metrics.occasion_conformity}/10
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -213,48 +310,57 @@ export default function ItineraryGenerator() {
                 </div>
               )}
 
-              {/* Activities */}
+              {/* Schedule blocks */}
               <ul className="divide-y divide-slate-100">
-                {day.activities.map((activity, i) => (
-                  <li key={i} className="px-6 py-4 flex items-start gap-4">
-                    {/* Verified badge */}
-                    <div className="flex-shrink-0 mt-0.5">
-                      {activity.verified ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
-                          ✅ Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-                          ⚠️ Unverified
-                        </span>
+                {(day.schedule ?? []).map((block, i) => (
+                  <li key={i} className="px-6 py-5">
+                    {/* Time block + verified */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{block.time_block}</span>
+                      <div className="flex items-center gap-2">
+                        {block.duration_mins && (
+                          <span className="text-xs text-slate-400">{block.duration_mins} min</span>
+                        )}
+                        {block.verified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">✅ Verified</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">⚠️ Unverified</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Title + maps link */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
+                      <span className="font-semibold text-slate-800 text-sm">{block.activity_title}</span>
+                      {block.maps_link && (
+                        <a href={block.maps_link} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline">
+                          📍 View on Maps
+                        </a>
                       )}
                     </div>
 
-                    {/* Activity details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className="font-medium text-slate-800 text-sm">{activity.name}</span>
-                        {activity.duration_mins && (
-                          <span className="text-xs text-slate-400">{activity.duration_mins} min</span>
-                        )}
-                        {activity.maps_link && (
-                          <a
-                            href={activity.maps_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                          >
-                            📍 View on Maps
-                          </a>
-                        )}
-                      </div>
-                      {activity.notes && (
-                        <p className="text-xs text-slate-500 mt-1">{activity.notes}</p>
-                      )}
-                      {!activity.verified && activity.verified_note && (
-                        <p className="text-xs text-slate-400 mt-1 italic">{activity.verified_note}</p>
-                      )}
+                    {/* Narrative */}
+                    <p className="text-sm text-slate-600 leading-relaxed mb-3">{block.activity_narrative}</p>
+
+                    {/* Logistics */}
+                    <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">📋 Logistics: </span>
+                      {block.ticketing_and_logistics}
                     </div>
+
+                    {/* Verified note */}
+                    {!block.verified && block.verified_note && (
+                      <p className="mt-1.5 text-xs text-slate-400 italic">{block.verified_note}</p>
+                    )}
+
+                    {/* Demographic note */}
+                    {block.demographic_catering_note && (
+                      <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                        <span className="font-semibold">👶 Note: </span>
+                        {block.demographic_catering_note}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
