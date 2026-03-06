@@ -74,6 +74,16 @@ export default function ItineraryGenerator() {
     e.preventDefault()
     setError('')
     setResult(null)
+
+    if (selectedCountries.length === 0) {
+      setError('Please select at least one destination country.')
+      return
+    }
+    if (travelDates.nights === null && travelDates.startDate === null) {
+      setError('Please select travel dates or number of nights.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -298,8 +308,16 @@ export default function ItineraryGenerator() {
               {(day.hotel || day.meals_included) && (
                 <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-4 text-xs text-slate-500">
                   {day.hotel && (
-                    <span>
-                      <span className="font-medium text-slate-700">Hotel:</span> {day.hotel}
+                    <span className="flex items-center gap-2">
+                      <span><span className="font-medium text-slate-700">Hotel:</span> {day.hotel}</span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(day.hotel + ' ' + result.destination)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        📍 View on Maps
+                      </a>
                     </span>
                   )}
                   {day.meals_included && (
