@@ -7,6 +7,7 @@ import TravelDates, { TravelDatesValue } from '../../components/TravelDates'
 import TravelerDetails from '../../components/TravelerDetails'
 import PaxSelector from '../../components/PaxSelector'
 import BudgetSelector from '../../components/BudgetSelector'
+import GeneratingScreen from '../../components/GeneratingScreen'
 
 interface Activity {
   name: string
@@ -155,11 +156,12 @@ export default function ItineraryGenerator() {
 
       {/* Loading state */}
       {loading && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          <p className="text-slate-600 text-sm font-medium">Generating your itinerary…</p>
-          <p className="text-slate-400 text-xs">This usually takes 10–20 seconds</p>
-        </div>
+        <GeneratingScreen
+          selectedCountries={selectedCountries}
+          budget={budget}
+          occasion={travelerDetails.occasion}
+          travelerTypes={travelerDetails.travelerTypes}
+        />
       )}
 
       {/* Result */}
