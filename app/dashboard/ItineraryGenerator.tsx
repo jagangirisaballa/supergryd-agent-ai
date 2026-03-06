@@ -1,6 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import CountrySelector from '../../components/CountrySelector'
+import CitySelector from '../../components/CitySelector'
+import TravelDates, { TravelDatesValue } from '../../components/TravelDates'
+import TravelerDetails from '../../components/TravelerDetails'
+import PaxSelector from '../../components/PaxSelector'
+import BudgetSelector from '../../components/BudgetSelector'
 
 interface Activity {
   name: string
@@ -28,13 +34,20 @@ interface Itinerary {
 }
 
 export default function ItineraryGenerator() {
-  const [destination, setDestination] = useState('')
-  const [dates, setDates] = useState('')
-  const [travellers, setTravellers] = useState('')
-  const [tripStyle, setTripStyle] = useState('')
+  const [selectedCountries, setSelectedCountries] = useState<{code:string;name:string;emoji:string}[]>([])
+  const [selectedCities, setSelectedCities] = useState<{name:string;countryCode:string}[]>([])
+  const [travelDates, setTravelDates] = useState<TravelDatesValue>({ startDate: null, endDate: null, arrivalTime: '', departureTime: '', nights: null })
+  const [travelerDetails, setTravelerDetails] = useState<{ travelerTypes: string[]; otherTraveler: string; occasion: string }>({ travelerTypes: [], otherTraveler: '', occasion: '' })
+  const [pax, setPax] = useState({ adults: 2, children: 0, infants: 0 })
+  const [budget, setBudget] = useState('comfort')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<Itinerary | null>(null)
+
+  useEffect(() => {
+    const codes = new Set(selectedCountries.map(c => c.code))
+    setSelectedCities(prev => prev.filter(c => codes.has(c.countryCode)))
+  }, [selectedCountries])
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
@@ -46,7 +59,24 @@ export default function ItineraryGenerator() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, dates, travellers, tripStyle }),
+        body: JSON.stringify({
+          destination: selectedCountries.map(c => c.name).join(', '),
+          cities: selectedCities.map(c => c.name).join(', '),
+          dates: (() => {
+            if (travelDates.nights) return `${travelDates.nights} nights`
+            const { startDate, endDate, arrivalTime, departureTime } = travelDates
+            if (!startDate) return ''
+            const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            let s = `${fmt(startDate)}${endDate ? ' to ' + fmt(endDate) : ''}`
+            if (arrivalTime) s += `, arriving ${arrivalTime}`
+            if (departureTime) s += `, departing ${departureTime}`
+            return s
+          })(),
+          pax: pax.adults + ' adults, ' + pax.children + ' children, ' + pax.infants + ' infants',
+          travelerTypes: travelerDetails.travelerTypes.join(', '),
+          occasion: travelerDetails.occasion,
+          budget,
+        }),
       })
 
       if (!res.ok) {
@@ -73,60 +103,38 @@ export default function ItineraryGenerator() {
         <form onSubmit={handleGenerate} className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Destination <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                placeholder="e.g. Paris, France"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
+              <CountrySelector value={selectedCountries} onChange={setSelectedCountries} />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Travel Dates or Duration <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={dates}
-                onChange={(e) => setDates(e.target.value)}
-                placeholder="e.g. 10–17 Aug 2025 or 7 nights"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-              />
+              <CitySelector selectedCountries={selectedCountries} value={selectedCities} onChange={setSelectedCities} />
             </div>
+
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Travellers <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={travellers}
-              onChange={(e) => setTravellers(e.target.value)}
-              placeholder="e.g. 2 adults, 1 child (age 8)"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            <TravelDates value={travelDates} onChange={setTravelDates} />
+          </div>
+
+          <div>
+            <TravelerDetails
+              travelerTypes={travelerDetails.travelerTypes}
+              otherTraveler={travelerDetails.otherTraveler}
+              occasion={travelerDetails.occasion}
+              onChange={(field, value) => setTravelerDetails(prev => ({ ...prev, [field]: value }))}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Trip Style
-              <span className="text-slate-400 font-normal ml-1">(optional)</span>
-            </label>
-            <textarea
-              rows={3}
-              value={tripStyle}
-              onChange={(e) => setTripStyle(e.target.value)}
-              placeholder="e.g. Luxury, culture-focused, avoid beaches. Client prefers boutique hotels and local dining."
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
+            <PaxSelector
+              adults={pax.adults}
+              children={pax.children}
+              infants={pax.infants}
+              onChange={(field, value) => setPax(prev => ({ ...prev, [field]: value }))}
             />
+          </div>
+
+          <div>
+            <BudgetSelector value={budget} onChange={setBudget} />
           </div>
 
           {error && (
