@@ -5,6 +5,48 @@ import { scoreItinerary } from '@/lib/itinerary-scorer'
 import { createClient } from '@/lib/supabase/server'
 import { logItinerary } from '@/lib/db/log-itinerary'
 
+async function continueItinerary(
+  openai: OpenAI,
+  existingDays: any[],
+  fromDay: number,
+  toDay: number,
+  userPrompt: string,
+  attempt: number
+): Promise<any[]> {
+  console.log(`[ATTEMPT ${attempt}/3] Continuing from Day ${fromDay} to Day ${toDay}`)
+
+  const continuationPrompt = `You are continuing a partially generated travel itinerary.
+
+Days already generated:
+${JSON.stringify(existingDays, null, 2)}
+
+Now generate Days ${fromDay} through ${toDay} for this trip.
+Original trip context:
+${userPrompt}
+
+IMPORTANT:
+- Do NOT repeat any days already listed above.
+- Start from Day ${fromDay} and generate through Day ${toDay}.
+- Each day object must match the exact same schema as the existing days.
+- Return valid JSON in this exact format: { "itinerary": [ <day objects> ] }`
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: continuationPrompt }
+    ],
+    response_format: { type: 'json_object' },
+    max_tokens: 16000
+  })
+
+  console.log(`[ATTEMPT ${attempt}/3] finish_reason: ${response.choices[0].finish_reason}, tokens: ${response.usage?.completion_tokens}`)
+
+  const content = response.choices[0].message.content
+  const parsed = JSON.parse(content!)
+  return parsed.itinerary ?? []
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { destination, cities, dates, pax, travelerTypes, occasion, budget } = body
@@ -42,6 +84,21 @@ Budget: ${budget || 'comfort'}`
 
     console.log('User Prompt:', userPrompt)
 
+    // Parse requestedNights
+    let requestedNights: number | null = null
+    const nightsMatch = dates?.match(/(\d+)\s*nights?/i)
+    if (nightsMatch) {
+      requestedNights = parseInt(nightsMatch[1])
+    } else if (dates?.includes(' to ')) {
+      const parts = dates.split(' to ')
+      const start = new Date(parts[0])
+      const end = new Date(parts[1].split(',')[0])
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        requestedNights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      }
+    }
+    const expectedDays = requestedNights !== null ? requestedNights + 1 : null
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -56,14 +113,14 @@ Budget: ${budget || 'comfort'}`
     const completionTokens = response.usage?.completion_tokens
     const totalTokens = response.usage?.total_tokens
 
-    console.log('Finish Reason:', finishReason)
-    console.log('Usage Tokens:', { prompt_tokens: response.usage?.prompt_tokens, completion_tokens: completionTokens, total_tokens: totalTokens })
+    console.log('[ATTEMPT 1/3] Finish Reason:', finishReason)
+    console.log('[ATTEMPT 1/3] Usage Tokens:', { prompt_tokens: response.usage?.prompt_tokens, completion_tokens: completionTokens, total_tokens: totalTokens })
     console.log('Raw Content Length:', response.choices[0].message.content?.length)
     console.log('[RAW CONTENT FIRST 500]', response.choices[0].message.content?.substring(0, 500))
 
     if (finishReason === 'length') {
       const errorMessage = `[DIAG] Response truncated by model. finish_reason: length. completion_tokens hit max_tokens limit of ${completionTokens}. Total tokens: ${totalTokens}. Reduce trip length or nights.`
-      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage })
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage, attempt_count: 1 })
       return NextResponse.json({ error: errorMessage, id }, { status: 422 })
     }
 
@@ -83,21 +140,47 @@ Budget: ${budget || 'comfort'}`
       }))
     } catch (e) {
       const errorMessage = `[DIAG] JSON parse failed. finish_reason: ${finishReason}. Content length: ${content?.length} chars. completion_tokens: ${completionTokens}. First 200 chars: ${content?.substring(0, 200)}`
-      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage })
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage, attempt_count: 1 })
       return NextResponse.json({ error: errorMessage, id }, { status: 500 })
     }
 
-    const scored = scoreItinerary(parsed, { hasInfants, hasSeniors, occasion: occasion ?? '' })
+    // Retry loop for incomplete itineraries
+    let attempt = 1
+    if (expectedDays !== null) {
+      while ((parsed.itinerary?.length ?? 0) < expectedDays && attempt < 3) {
+        attempt++
+        const fromDay = (parsed.itinerary?.length ?? 0) + 1
+        console.log(`[RETRY NEEDED] actualDays: ${parsed.itinerary?.length ?? 0}, expectedDays: ${expectedDays}, attempt: ${attempt}`)
+        try {
+          const newDays = await continueItinerary(openai, parsed.itinerary ?? [], fromDay, expectedDays, userPrompt, attempt)
+          parsed.itinerary = [...(parsed.itinerary ?? []), ...newDays]
+        } catch (retryErr: any) {
+          console.log(`[ATTEMPT ${attempt}/3] Continuation failed: ${retryErr.message}`)
+          break
+        }
+      }
+    }
 
-    const actualDays = scored.itinerary?.length ?? 0
-    console.log('Days Check:', { actualDays, expectedDays: scored.duration_days })
+    const actualDays = parsed.itinerary?.length ?? 0
+    console.log('Days Check:', { actualDays, expectedDays, requestedNights })
 
-    if (!scored.itinerary || scored.itinerary.length === 0) {
+    if (!parsed.itinerary || parsed.itinerary.length === 0) {
       return NextResponse.json(
         { error: `[DIAG] Zero days generated. finish_reason: ${response.choices[0].finish_reason}. Tokens: ${response.usage?.completion_tokens}/${response.usage?.total_tokens}. Content length: ${response.choices[0].message.content?.length} chars.` },
         { status: 422 }
       )
     }
+
+    if (expectedDays !== null && actualDays < expectedDays) {
+      const errorMessage = `[DIAG] Incomplete after ${attempt} attempts. Got ${actualDays}/${expectedDays} days.`
+      await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, actual_days: actualDays, expected_days: expectedDays, error_message: errorMessage, attempt_count: attempt })
+      return NextResponse.json({
+        error: "Looks like our AI travel planners are working overtime right now! 🌍 I can bump your request up the queue if you'd like — shall I do it?",
+        retryable: true
+      }, { status: 503 })
+    }
+
+    const scored = scoreItinerary(parsed, { hasInfants, hasSeniors, occasion: occasion ?? '' })
 
     // Log to Supabase session log
     await supabase.from('session_logs').update({
@@ -110,9 +193,10 @@ Budget: ${budget || 'comfort'}`
       input_snapshot: inputSnapshot,
       finish_reason: finishReason,
       completion_tokens: completionTokens,
-      actual_days: actualDays,
-      expected_days: scored.duration_days,
+      actual_days: scored.itinerary?.length ?? 0,
+      expected_days: expectedDays ?? scored.duration_days,
       output_json: scored as unknown as Record<string, unknown>,
+      attempt_count: attempt,
     })
 
     return NextResponse.json({ itinerary: scored, id })

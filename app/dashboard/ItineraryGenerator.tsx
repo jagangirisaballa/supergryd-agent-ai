@@ -63,6 +63,8 @@ export default function ItineraryGenerator() {
   const [budget, setBudget] = useState('comfort')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [retryable, setRetryable] = useState(false)
+  const [attempt, setAttempt] = useState<1 | 2 | 3>(1)
   const [result, setResult] = useState<Itinerary | null>(null)
   const [itineraryId, setItineraryId] = useState<string | null>(null)
 
@@ -71,11 +73,21 @@ export default function ItineraryGenerator() {
     setSelectedCities(prev => prev.filter(c => codes.has(c.countryCode)))
   }, [selectedCountries])
 
+  // Drive attempt display by elapsed time while loading
+  useEffect(() => {
+    if (!loading) return
+    const t2 = setTimeout(() => setAttempt(2), 40000)
+    const t3 = setTimeout(() => setAttempt(3), 75000)
+    return () => { clearTimeout(t2); clearTimeout(t3) }
+  }, [loading])
+
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setRetryable(false)
     setResult(null)
     setItineraryId(null)
+    setAttempt(1)
 
     if (selectedCountries.length === 0) {
       setError('Please select at least one destination country.')
@@ -116,6 +128,7 @@ export default function ItineraryGenerator() {
 
       if (!res.ok || data.error) {
         setError(data.error ?? 'Generation failed. Please try again.')
+        setRetryable(data.retryable === true)
         return
       }
 
@@ -183,7 +196,7 @@ export default function ItineraryGenerator() {
       </div>
 
       {/* Error banner */}
-      {error && !loading && (
+      {error && !loading && !retryable && (
         <div className="bg-red-50 border border-red-200 rounded-2xl px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
             <p className="text-sm font-semibold text-red-700 mb-0.5">Generation failed</p>
@@ -199,6 +212,20 @@ export default function ItineraryGenerator() {
         </div>
       )}
 
+      {/* Retryable error card */}
+      {error && !loading && retryable && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-6 flex flex-col gap-4">
+          <p className="text-sm text-amber-800">{error}</p>
+          <button
+            type="button"
+            onClick={(e) => { setError(''); setRetryable(false); handleGenerate(e as any); }}
+            className="self-start px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition"
+          >
+            Yes, bump me up! 🚀
+          </button>
+        </div>
+      )}
+
       {/* Loading state */}
       {loading && (
         <GeneratingScreen
@@ -206,6 +233,7 @@ export default function ItineraryGenerator() {
           budget={budget}
           occasion={travelerDetails.occasion}
           travelerTypes={travelerDetails.travelerTypes}
+          attempt={attempt}
         />
       )}
 

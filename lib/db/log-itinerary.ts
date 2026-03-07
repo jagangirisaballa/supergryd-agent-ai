@@ -23,6 +23,7 @@ interface LogItineraryData {
   expected_days?: number
   output_json?: Record<string, unknown>
   error_message?: string
+  attempt_count?: number
 }
 
 export async function logItinerary(data: LogItineraryData): Promise<string> {

@@ -299,7 +299,7 @@ export default function CitySelector({
                     </div>
                     {topOptions.map((opt) => (
                       <button
-                        key={opt.name}
+                        key={`${opt.name}-${opt.countryCode}`}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() =>
@@ -320,7 +320,7 @@ export default function CitySelector({
                     </div>
                     {restOptions.map((opt) => (
                       <button
-                        key={opt.name}
+                        key={`${opt.name}-${opt.countryCode}`}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() =>

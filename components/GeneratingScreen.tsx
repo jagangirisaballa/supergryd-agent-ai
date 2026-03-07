@@ -7,9 +7,10 @@ type Props = {
   budget: string;
   occasion: string;
   travelerTypes: string[];
+  attempt?: 1 | 2 | 3;
 };
 
-export default function GeneratingScreen({ selectedCountries, budget, occasion, travelerTypes }: Props) {
+export default function GeneratingScreen({ selectedCountries, budget, occasion, travelerTypes, attempt = 1 }: Props) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -114,7 +115,11 @@ export default function GeneratingScreen({ selectedCountries, budget, occasion, 
 
       {/* Static line */}
       <p className="text-sm text-slate-400 font-normal">
-        Crafting your personalised itinerary — this takes about 20 seconds
+        {attempt === 3
+          ? 'Almost there, perfecting the last few days...'
+          : attempt === 2
+          ? 'Adding the finishing touches to your itinerary...'
+          : 'Crafting your personalised itinerary — this takes about 20 seconds'}
       </p>
     </div>
   );
