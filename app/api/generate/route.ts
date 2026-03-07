@@ -71,6 +71,16 @@ Budget: ${budget || 'comfort'}`
     let parsed: any
     try {
       parsed = JSON.parse(content!)
+      const allBlocks = parsed.itinerary?.flatMap((d: any) => d.schedule ?? []) ?? []
+      const verifiedWithMaps = allBlocks.filter((s: any) => s.verified === true && s.maps_link)
+      const verifiedWithoutMaps = allBlocks.filter((s: any) => s.verified === true && !s.maps_link)
+      const unverifiedWithMaps = allBlocks.filter((s: any) => s.verified === false && s.maps_link)
+      console.log('[MAPS AUDIT]', JSON.stringify({
+        total_blocks: allBlocks.length,
+        verified_with_maps: verifiedWithMaps.length,
+        verified_without_maps: verifiedWithoutMaps.map((s: any) => s.activity_title),
+        unverified_with_maps: unverifiedWithMaps.length
+      }))
     } catch (e) {
       const errorMessage = `[DIAG] JSON parse failed. finish_reason: ${finishReason}. Content length: ${content?.length} chars. completion_tokens: ${completionTokens}. First 200 chars: ${content?.substring(0, 200)}`
       const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage })

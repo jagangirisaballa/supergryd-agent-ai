@@ -20,7 +20,7 @@ for (let h = 0; h < 24; h++) {
   }
 }
 
-const NIGHT_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+const NIGHT_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
 
 function toInputValue(d: Date | null): string {
   if (!d) return "";

@@ -363,7 +363,21 @@ export default function ItineraryGenerator() {
 
               {/* Schedule blocks */}
               <ul className="divide-y divide-slate-100">
-                {(day.schedule ?? []).map((block, i) => (
+                {(day.schedule ?? []).map((block, i) => {
+                  const cityName = result.destination.split(',')[0].trim()
+                  const isMeal = /lunch|dinner|breakfast|cafe|restaurant|dining|eatery|food/i.test(block.activity_title) ||
+                    /lunch|dinner|breakfast/i.test(block.time_block)
+                  const mealType = /breakfast/i.test(block.activity_title + block.time_block) ? 'breakfast'
+                    : /lunch/i.test(block.activity_title + block.time_block) ? 'lunch'
+                    : 'dinner'
+                  const mealCopy = {
+                    breakfast: 'Start your morning right — your agent will recommend the best breakfast spots.',
+                    lunch: 'Your agent will curate a memorable midday dining experience.',
+                    dinner: 'An evening meal worth remembering — your agent will handpick the finest options.',
+                  }[mealType]
+                  const conciergeMapUrl = `https://www.google.com/maps/search/${encodeURIComponent(block.activity_title + ' ' + result.destination)}`
+
+                  return (
                   <li key={i} className="px-6 py-5">
                     {/* Time block + verified */}
                     <div className="flex items-center justify-between mb-2">
@@ -412,8 +426,24 @@ export default function ItineraryGenerator() {
                         {block.demographic_catering_note}
                       </div>
                     )}
+
+                    {/* Concierge dining card */}
+                    {!block.maps_link && isMeal && (
+                      <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
+                        <p className="text-xs text-amber-800 italic mb-2">🍽️ {mealCopy}</p>
+                        <a
+                          href={conciergeMapUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-amber-700 font-medium hover:text-amber-900 hover:underline"
+                        >
+                          → Browse restaurants in {cityName}
+                        </a>
+                      </div>
+                    )}
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             </div>
           ))}
