@@ -78,13 +78,33 @@ Budget: ${budget || 'comfort'}`
 
     const scored = scoreItinerary(parsed, { hasInfants, hasSeniors, occasion: occasion ?? '' })
 
+    // Parse requestedNights from dates string
+    let requestedNights: number | null = null
+    const nightsMatch = dates?.match(/(\d+)\s*nights?/i)
+    if (nightsMatch) {
+      requestedNights = parseInt(nightsMatch[1])
+    } else if (dates?.includes(' to ')) {
+      const parts = dates.split(' to ')
+      const start = new Date(parts[0])
+      const end = new Date(parts[1].split(',')[0])
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        requestedNights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      }
+    }
+
     const actualDays = scored.itinerary?.length ?? 0
-    const expectedDays = scored.duration_days
-    console.log('Days Check:', { actualDays, expectedDays })
+    const expectedDays = requestedNights !== null ? requestedNights + 1 : scored.duration_days
+    console.log('Days Check:', { actualDays, expectedDays, requestedNights })
 
     if (!scored.itinerary || scored.itinerary.length === 0) {
       const errorMessage = `[DIAG] Zero days generated. finish_reason: ${finishReason}. Tokens used: ${completionTokens}/${totalTokens}. Content length: ${content?.length} chars.`
       const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, actual_days: 0, expected_days: expectedDays, error_message: errorMessage })
+      return NextResponse.json({ error: errorMessage, id }, { status: 422 })
+    }
+
+    if (actualDays < expectedDays) {
+      const errorMessage = `[DIAG] Incomplete itinerary. Expected ${expectedDays} days for ${requestedNights} nights but AI generated ${actualDays} days.`
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, actual_days: actualDays, expected_days: expectedDays, error_message: errorMessage })
       return NextResponse.json({ error: errorMessage, id }, { status: 422 })
     }
 

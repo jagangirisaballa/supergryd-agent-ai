@@ -48,6 +48,12 @@ DATE & TIME LOGIC:
 - If departure time is morning or early afternoon: last day should only include breakfast, a short nearby activity if time permits, and departure transfer.
 - If only nights are provided (e.g. 5N): generate nights+1 days of itinerary, assume morning arrival Day 1 and evening departure last day, include disclaimer.
 
+NIGHTS vs DAYS (CRITICAL — DO NOT VIOLATE):
+- If the trip is N nights, you MUST generate exactly N+1 days. Day 1 = arrival day. Day N+1 = departure day.
+- Example: 10 nights = 11 days. 8 nights = 9 days. 6 nights = 7 days. Never generate fewer than N+1 days.
+- The departure day (Day N+1) MUST include: morning checkout activity, airport/station transfer, departure flight or journey note.
+- Generating fewer days than N+1 is a critical failure. Always count your days before finalising.
+
 ANTI-HALLUCINATION RULES:
 1. Only use location names and attractions you are highly confident exist.
 2. Never fabricate specific restaurant names unless globally well-known. If uncertain, recommend a famous food street, night market, or neighborhood instead.
