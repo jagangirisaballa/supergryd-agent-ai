@@ -50,7 +50,7 @@ Budget: ${budget || 'comfort'}`
     })
 
     console.log('Finish Reason:', response.choices[0].finish_reason)
-    console.log('Usage Tokens:', { prompt_tokens: response.usage.prompt_tokens, completion_tokens: response.usage.completion_tokens, total_tokens: response.usage.total_tokens })
+    console.log('Usage Tokens:', { prompt_tokens: response.usage?.prompt_tokens, completion_tokens: response.usage?.completion_tokens, total_tokens: response.usage?.total_tokens })
     console.log('Raw Content Length:', response.choices[0].message.content?.length)
 
     if (response.choices[0].finish_reason === 'length') {
