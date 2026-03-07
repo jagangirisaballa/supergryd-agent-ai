@@ -3,15 +3,18 @@ import OpenAI from 'openai'
 import { SYSTEM_PROMPT, ITINERARY_SCHEMA } from '@/lib/prompts'
 import { scoreItinerary } from '@/lib/itinerary-scorer'
 import { createClient } from '@/lib/supabase/server'
+import { logItinerary } from '@/lib/db/log-itinerary'
 
 export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { destination, cities, dates, pax, travelerTypes, occasion, budget } = body
+  const inputSnapshot = { destination, cities, dates, pax, travelerTypes, occasion, budget }
+
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { destination, cities, dates, pax, travelerTypes, occasion, budget } = await request.json()
 
     // Parse pax counts for context
     const infantsMatch = pax?.match(/(\d+)\s*infants?/)
@@ -49,15 +52,18 @@ Budget: ${budget || 'comfort'}`
       max_tokens: 16000
     })
 
-    console.log('Finish Reason:', response.choices[0].finish_reason)
-    console.log('Usage Tokens:', { prompt_tokens: response.usage?.prompt_tokens, completion_tokens: response.usage?.completion_tokens, total_tokens: response.usage?.total_tokens })
+    const finishReason = response.choices[0].finish_reason
+    const completionTokens = response.usage?.completion_tokens
+    const totalTokens = response.usage?.total_tokens
+
+    console.log('Finish Reason:', finishReason)
+    console.log('Usage Tokens:', { prompt_tokens: response.usage?.prompt_tokens, completion_tokens: completionTokens, total_tokens: totalTokens })
     console.log('Raw Content Length:', response.choices[0].message.content?.length)
 
-    if (response.choices[0].finish_reason === 'length') {
-      return NextResponse.json(
-        { error: `[DIAG] Response truncated by model. finish_reason: length. completion_tokens hit max_tokens limit of ${response.usage?.completion_tokens}. Total tokens: ${response.usage?.total_tokens}. Reduce trip length or nights.` },
-        { status: 422 }
-      )
+    if (finishReason === 'length') {
+      const errorMessage = `[DIAG] Response truncated by model. finish_reason: length. completion_tokens hit max_tokens limit of ${completionTokens}. Total tokens: ${totalTokens}. Reduce trip length or nights.`
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage })
+      return NextResponse.json({ error: errorMessage, id }, { status: 422 })
     }
 
     const content = response.choices[0].message.content
@@ -65,31 +71,47 @@ Budget: ${budget || 'comfort'}`
     try {
       parsed = JSON.parse(content!)
     } catch (e) {
-      return NextResponse.json({ error: `[DIAG] JSON parse failed. finish_reason: ${response.choices[0].finish_reason}. Content length: ${content?.length} chars. completion_tokens: ${response.usage?.completion_tokens}. First 200 chars: ${content?.substring(0, 200)}` }, { status: 500 })
+      const errorMessage = `[DIAG] JSON parse failed. finish_reason: ${finishReason}. Content length: ${content?.length} chars. completion_tokens: ${completionTokens}. First 200 chars: ${content?.substring(0, 200)}`
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, error_message: errorMessage })
+      return NextResponse.json({ error: errorMessage, id }, { status: 500 })
     }
 
     const scored = scoreItinerary(parsed, { hasInfants, hasSeniors, occasion: occasion ?? '' })
 
     const actualDays = scored.itinerary?.length ?? 0
-    console.log('Days Check:', { actualDays, expectedDays: scored.duration_days })
+    const expectedDays = scored.duration_days
+    console.log('Days Check:', { actualDays, expectedDays })
+
     if (!scored.itinerary || scored.itinerary.length === 0) {
-      return NextResponse.json(
-        { error: `[DIAG] Zero days generated. finish_reason: ${response.choices[0].finish_reason}. Tokens used: ${response.usage?.completion_tokens}/${response.usage?.total_tokens}. Content length: ${content?.length} chars.` },
-        { status: 422 }
-      )
+      const errorMessage = `[DIAG] Zero days generated. finish_reason: ${finishReason}. Tokens used: ${completionTokens}/${totalTokens}. Content length: ${content?.length} chars.`
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, finish_reason: finishReason, completion_tokens: completionTokens, actual_days: 0, expected_days: expectedDays, error_message: errorMessage })
+      return NextResponse.json({ error: errorMessage, id }, { status: 422 })
     }
 
-    // Log to Supabase
+    // Log to Supabase session log
     await supabase.from('session_logs').update({
       itineraries_generated: 1,
       mode_used: 'generation'
     }).eq('agent_id', user.id)
 
-    return NextResponse.json({ itinerary: scored })
+    const id = await logItinerary({
+      status: 'success',
+      input_snapshot: inputSnapshot,
+      finish_reason: finishReason,
+      completion_tokens: completionTokens,
+      actual_days: actualDays,
+      expected_days: expectedDays,
+      output_json: scored as unknown as Record<string, unknown>,
+    })
+
+    return NextResponse.json({ itinerary: scored, id })
   } catch (e: any) {
-    return NextResponse.json(
-      { error: `[DIAG] Unhandled exception: ${e.message}. Stack: ${e.stack?.split('\n')[1]}` },
-      { status: 500 }
-    )
+    const errorMessage = `[DIAG] Unhandled exception: ${e.message}. Stack: ${e.stack?.split('\n')[1]}`
+    try {
+      const id = await logItinerary({ status: 'failed', input_snapshot: inputSnapshot, error_message: errorMessage })
+      return NextResponse.json({ error: errorMessage, id }, { status: 500 })
+    } catch {
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
+    }
   }
 }

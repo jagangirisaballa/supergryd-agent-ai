@@ -64,6 +64,7 @@ export default function ItineraryGenerator() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<Itinerary | null>(null)
+  const [itineraryId, setItineraryId] = useState<string | null>(null)
 
   useEffect(() => {
     const codes = new Set(selectedCountries.map(c => c.code))
@@ -74,6 +75,7 @@ export default function ItineraryGenerator() {
     e.preventDefault()
     setError('')
     setResult(null)
+    setItineraryId(null)
 
     if (selectedCountries.length === 0) {
       setError('Please select at least one destination country.')
@@ -118,6 +120,7 @@ export default function ItineraryGenerator() {
       }
 
       setResult(data.itinerary)
+      setItineraryId(data.id ?? null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
@@ -211,7 +214,12 @@ export default function ItineraryGenerator() {
         <div className="space-y-6">
           {/* Itinerary header */}
           <div className="bg-blue-600 rounded-2xl p-6 sm:p-8 text-white">
-            <h2 className="text-2xl font-bold">{result.destination}</h2>
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-2xl font-bold">{result.destination}</h2>
+              {itineraryId && (
+                <span className="font-mono text-xs text-blue-300 mt-1 flex-shrink-0">ID: {itineraryId}</span>
+              )}
+            </div>
             <div className="flex flex-wrap gap-4 mt-3 text-blue-100 text-sm">
               <span className="flex items-center gap-1.5">
                 <span className="opacity-70">Duration</span>
