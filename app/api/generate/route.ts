@@ -37,6 +37,8 @@ Traveler Types: ${travelerTypes || 'not specified'}
 Occasion: ${occasion || 'not specified'}
 Budget: ${budget || 'comfort'}`
 
+    console.log('User Prompt:', userPrompt)
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -47,9 +49,13 @@ Budget: ${budget || 'comfort'}`
       max_tokens: 16000
     })
 
+    console.log('Finish Reason:', response.choices[0].finish_reason)
+    console.log('Usage Tokens:', { prompt_tokens: response.usage.prompt_tokens, completion_tokens: response.usage.completion_tokens, total_tokens: response.usage.total_tokens })
+    console.log('Raw Content Length:', response.choices[0].message.content?.length)
+
     if (response.choices[0].finish_reason === 'length') {
       return NextResponse.json(
-        { error: 'Response truncated — itinerary too long. Try fewer nights or fewer cities.' },
+        { error: `[DIAG] Response truncated by model. finish_reason: length. completion_tokens hit max_tokens limit of ${response.usage?.completion_tokens}. Total tokens: ${response.usage?.total_tokens}. Reduce trip length or nights.` },
         { status: 422 }
       )
     }
@@ -59,16 +65,16 @@ Budget: ${budget || 'comfort'}`
     try {
       parsed = JSON.parse(content!)
     } catch (e) {
-      return NextResponse.json({ error: 'AI returned invalid data. Please try again.' }, { status: 500 })
+      return NextResponse.json({ error: `[DIAG] JSON parse failed. finish_reason: ${response.choices[0].finish_reason}. Content length: ${content?.length} chars. completion_tokens: ${response.usage?.completion_tokens}. First 200 chars: ${content?.substring(0, 200)}` }, { status: 500 })
     }
 
     const scored = scoreItinerary(parsed, { hasInfants, hasSeniors, occasion: occasion ?? '' })
 
-    const expectedDays = scored.duration_days
     const actualDays = scored.itinerary?.length ?? 0
-    if (actualDays < expectedDays) {
+    console.log('Days Check:', { actualDays, expectedDays: scored.duration_days })
+    if (!scored.itinerary || scored.itinerary.length === 0) {
       return NextResponse.json(
-        { error: `Itinerary incomplete — AI only generated ${actualDays} of ${expectedDays} days. Please try again.` },
+        { error: `[DIAG] Zero days generated. finish_reason: ${response.choices[0].finish_reason}. Tokens used: ${response.usage?.completion_tokens}/${response.usage?.total_tokens}. Content length: ${content?.length} chars.` },
         { status: 422 }
       )
     }
@@ -82,7 +88,7 @@ Budget: ${budget || 'comfort'}`
     return NextResponse.json({ itinerary: scored })
   } catch (e: any) {
     return NextResponse.json(
-      { error: e.message ?? 'Something went wrong. Please try again.' },
+      { error: `[DIAG] Unhandled exception: ${e.message}. Stack: ${e.stack?.split('\n')[1]}` },
       { status: 500 }
     )
   }

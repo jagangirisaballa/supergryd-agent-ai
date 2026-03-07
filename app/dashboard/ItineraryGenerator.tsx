@@ -103,7 +103,7 @@ export default function ItineraryGenerator() {
             if (departureTime) s += `, departing ${departureTime}`
             return s
           })(),
-          pax: pax.adults + ' adults, ' + pax.children + ' children, ' + pax.infants + ' infants',
+          pax: `${pax.adults} Adults, ${pax.children} Children, ${pax.infants} Infants`,
           travelerTypes: travelerDetails.travelerTypes.join(', '),
           occasion: travelerDetails.occasion,
           budget,
@@ -278,27 +278,52 @@ export default function ItineraryGenerator() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-800">{day.title}</h3>
-                  {/* Day metrics pills */}
+                  {/* Day Analysis */}
                   {day.day_metrics && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        day.day_metrics.fatigue_level <= 3
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : day.day_metrics.fatigue_level <= 6
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        Fatigue {day.day_metrics.fatigue_level}/10
-                      </span>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                        Cultural {day.day_metrics.cultural_score}/10
-                      </span>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                        Adventure {day.day_metrics.adventure_score}/10
-                      </span>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                        Occasion Match {day.day_metrics.occasion_conformity}/10
-                      </span>
+                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                      <h4 className="font-semibold text-slate-800 mb-3">Day Analysis</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-slate-600 w-24 flex-shrink-0">Fatigue Level:</span>
+                          <div className="w-full bg-slate-200 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full ${day.day_metrics.fatigue_level <= 3 ? 'bg-emerald-500' : day.day_metrics.fatigue_level <= 6 ? 'bg-amber-500' : 'bg-red-500'}`}
+                              style={{ width: `${day.day_metrics.fatigue_level * 10}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-slate-600 w-8 flex-shrink-0 text-right">{day.day_metrics.fatigue_level}/10</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-slate-600 w-24 flex-shrink-0">Cultural Score:</span>
+                          <div className="w-full bg-slate-200 rounded-full h-2.5">
+                            <div
+                              className="h-2.5 rounded-full bg-blue-500"
+                              style={{ width: `${day.day_metrics.cultural_score * 10}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-slate-600 w-8 flex-shrink-0 text-right">{day.day_metrics.cultural_score}/10</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-slate-600 w-24 flex-shrink-0">Adventure Score:</span>
+                          <div className="w-full bg-slate-200 rounded-full h-2.5">
+                            <div
+                              className="h-2.5 rounded-full bg-orange-500"
+                              style={{ width: `${day.day_metrics.adventure_score * 10}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-slate-600 w-8 flex-shrink-0 text-right">{day.day_metrics.adventure_score}/10</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-slate-600 w-24 flex-shrink-0">Vibe Match %:</span>
+                          <div className="w-full bg-slate-200 rounded-full h-2.5">
+                            <div
+                              className="h-2.5 rounded-full bg-purple-500"
+                              style={{ width: `${day.day_metrics.occasion_conformity}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-slate-600 w-8 flex-shrink-0 text-right">{day.day_metrics.occasion_conformity}%</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -307,7 +332,7 @@ export default function ItineraryGenerator() {
               {/* Day meta */}
               {(day.hotel || day.meals_included) && (
                 <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-4 text-xs text-slate-500">
-                  {day.hotel && (
+                  {day.hotel && day.hotel.toLowerCase() !== 'null' && (
                     <span className="flex items-center gap-2">
                       <span><span className="font-medium text-slate-700">Hotel:</span> {day.hotel}</span>
                       <a

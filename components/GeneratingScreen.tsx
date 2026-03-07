@@ -72,7 +72,7 @@ export default function GeneratingScreen({ selectedCountries, budget, occasion, 
     if (types.some((t) => t.includes("infant") || t.includes("toddler"))) {
       base.push(
         "Planning rest breaks for your little one...",
-        "Keeping the pace gentle for young travellers..."
+        "Keeping the pace gentle for young travelers..."
       );
     }
     if (types.some((t) => t.includes("family") || t.includes("kids"))) {
