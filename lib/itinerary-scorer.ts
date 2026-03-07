@@ -93,6 +93,7 @@ export function scoreItinerary(rawItinerary: any, context: ScoringContext): Scor
 
   return {
     ...rawItinerary,
+    duration_days: scoredDays.length,
     itinerary: scoredDays,
     overall_metrics: {
       trust_score: trustScore,
