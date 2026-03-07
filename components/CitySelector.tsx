@@ -183,8 +183,7 @@ export default function CitySelector({
   return (
     <div className="w-full relative">
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        Cities{" "}
-        <span className="text-gray-400 font-normal text-xs ml-1">(optional)</span>
+        Cities <span className="text-red-400">*</span>
       </label>
 
       {/* Selected chips grouped by country */}
@@ -245,7 +244,7 @@ export default function CitySelector({
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? "Select a country first" : loading ? "Loading cities…" : "Search cities…"}
+          placeholder={disabled ? "Select a country first" : loading ? "Loading cities…" : "Select at least one city (required)"}
           className="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400 bg-transparent disabled:cursor-not-allowed"
         />
       </div>

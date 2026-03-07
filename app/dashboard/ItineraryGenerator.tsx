@@ -30,6 +30,7 @@ interface DayMetrics {
 
 interface DayPlan {
   day: number
+  city: string
   title: string
   hotel: string | null
   meals_included: string | null
@@ -91,6 +92,10 @@ export default function ItineraryGenerator() {
 
     if (selectedCountries.length === 0) {
       setError('Please select at least one destination country.')
+      return
+    }
+    if (selectedCities.length === 0) {
+      setError('Please select at least one city to generate your itinerary.')
       return
     }
     if (travelDates.nights === null && travelDates.startDate === null) {
@@ -286,10 +291,10 @@ export default function ItineraryGenerator() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
-                  ✅ {result.overall_metrics.verified_count} verified
+                  ✅ {result.overall_metrics.verified_count} confirmed
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
-                  ⚠️ {result.overall_metrics.unverified_count} unverified
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                  💡 {result.overall_metrics.unverified_count} recommended
                 </span>
               </div>
             </div>
@@ -366,8 +371,9 @@ export default function ItineraryGenerator() {
               </div>
 
               {/* Day meta */}
-              {(day.hotel || day.meals_included) && (
-                <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-4 text-xs text-slate-500">
+              {(day.hotel || day.meals_included || day.city) && (
+                <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+                  <div className="flex flex-wrap gap-4">
                   {day.hotel && day.hotel.toLowerCase() !== 'null' && (
                     <span className="flex items-center gap-2">
                       <span><span className="font-medium text-slate-700">Hotel:</span> {day.hotel}</span>
@@ -386,92 +392,135 @@ export default function ItineraryGenerator() {
                       <span className="font-medium text-slate-700">Meals:</span> {day.meals_included}
                     </span>
                   )}
+                  </div>
+                  {day.city && (() => {
+                    const parts = result.destination.split(',')
+                    const cn = parts.length > 1 ? parts[parts.length - 1].trim() : parts[0].trim()
+                    return (
+                      <a
+                        href={`https://www.google.com/maps/search/${encodeURIComponent(day.city + ', ' + cn)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-medium whitespace-nowrap hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                      >
+                        📍 {day.city}
+                      </a>
+                    )
+                  })()}
                 </div>
               )}
 
               {/* Schedule blocks */}
               <ul className="divide-y divide-slate-100">
-                {(day.schedule ?? []).map((block, i) => {
-                  const cityName = result.destination.split(',')[0].trim()
-                  const isMeal = /lunch|dinner|breakfast|cafe|restaurant|dining|eatery|food/i.test(block.activity_title) ||
-                    /lunch|dinner|breakfast/i.test(block.time_block)
-                  const mealType = /breakfast/i.test(block.activity_title + block.time_block) ? 'breakfast'
-                    : /lunch/i.test(block.activity_title + block.time_block) ? 'lunch'
-                    : 'dinner'
-                  const mealCopy = {
-                    breakfast: 'Start your morning right — your agent will recommend the best breakfast spots.',
-                    lunch: 'Your agent will curate a memorable midday dining experience.',
-                    dinner: 'An evening meal worth remembering — your agent will handpick the finest options.',
-                  }[mealType]
-                  const conciergeMapUrl = `https://www.google.com/maps/search/${encodeURIComponent(block.activity_title + ' ' + result.destination)}`
+                {(() => {
+                  const destParts = result.destination.split(',')
+                  const countryName = destParts.length > 1 ? destParts[destParts.length - 1].trim() : destParts[0].trim()
+                  const dayCityName = day.city || destParts[0].trim()
 
-                  return (
-                  <li key={i} className="px-6 py-5">
-                    {/* Time block + verified */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{block.time_block}</span>
-                      <div className="flex items-center gap-2">
-                        {block.duration_mins && (
-                          <span className="text-xs text-slate-400">{block.duration_mins} min</span>
+                  const renderedBlocks = (day.schedule ?? []).map((block, i) => {
+                    const isMeal = /lunch|dinner|breakfast|cafe|restaurant|dining|eatery|food/i.test(block.activity_title) ||
+                      /lunch|dinner|breakfast/i.test(block.time_block)
+                    const diningMapUrl = `https://www.google.com/maps/search/${encodeURIComponent('restaurants in ' + dayCityName + ', ' + countryName)}`
+                    const exploreBlockUrl = `https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + dayCityName + ', ' + countryName)}`
+
+                    // Unverified meal — show only concierge card
+                    if (isMeal && !block.verified) {
+                      return (
+                        <li key={i} className="px-6 py-5">
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{block.time_block}</span>
+                          <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
+                            <p className="text-xs text-amber-800 italic mb-2">🍽️ Explore nearby dining options and choose what catches your interest — you can either head there directly or ask us to help you arrange it.</p>
+                            <a href={diningMapUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-amber-700 font-medium hover:text-amber-900 hover:underline">
+                              📍 Browse restaurants in {dayCityName}, {countryName}
+                            </a>
+                          </div>
+                        </li>
+                      )
+                    }
+
+                    return (
+                      <li key={i} className="px-6 py-5">
+                        {/* Time block + badge */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{block.time_block}</span>
+                          <div className="flex items-center gap-2">
+                            {block.duration_mins && (
+                              <span className="text-xs text-slate-400">{block.duration_mins} min</span>
+                            )}
+                            {block.verified ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">✅ Confirmed</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">💡 Recommended</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Title + maps link */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
+                          <span className="font-semibold text-slate-800 text-sm">{block.activity_title}</span>
+                          {block.maps_link && (
+                            <a href={block.maps_link} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline">
+                              📍 View on Maps
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Narrative */}
+                        <p className="text-sm text-slate-600 leading-relaxed mb-3">{block.activity_narrative}</p>
+
+                        {/* Logistics */}
+                        <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600">
+                          <span className="font-semibold text-slate-700">📋 Logistics: </span>
+                          {block.ticketing_and_logistics}
+                        </div>
+
+                        {/* Demographic note */}
+                        {block.demographic_catering_note && (
+                          <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                            <span className="font-semibold">👶 Note: </span>
+                            {block.demographic_catering_note}
+                          </div>
                         )}
-                        {block.verified ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">✅ Verified</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">⚠️ Unverified</span>
+
+                        {/* Non-meal recommended block — explore link + agent note */}
+                        {!block.verified && !isMeal && (
+                          <div className="mt-3">
+                            <a href={exploreBlockUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline">
+                              📍 Explore things to do in {dayCityName}, {countryName}
+                            </a>
+                            <p className="mt-1 text-xs text-slate-400 italic">Your local agent will have the best suggestions for this — discuss with them to confirm.</p>
+                          </div>
                         )}
-                      </div>
-                    </div>
+                      </li>
+                    )
+                  })
 
-                    {/* Title + maps link */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
-                      <span className="font-semibold text-slate-800 text-sm">{block.activity_title}</span>
-                      {block.maps_link && (
-                        <a href={block.maps_link} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline">
-                          📍 View on Maps
+                  const exploreUrl = `https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + dayCityName + ', ' + countryName)}`
+                  const presentSlots = new Set((day.schedule ?? []).map(b => b.time_block))
+                  const fallbackCopy: Record<string, string> = {
+                    Morning: `We've kept your morning open. Browse things to do in ${dayCityName} and let us know what interests you — we'll help you plan it.`,
+                    Afternoon: `Your afternoon is yours to explore. Browse what's happening in ${dayCityName} and tell us what catches your eye — we'll help you plan it.`,
+                    Evening: `We've kept this evening open for you. Browse what's happening in ${dayCityName} and let us know what excites you — we'll help you plan it.`,
+                  }
+
+                  const fallbackBlocks = (['Morning', 'Afternoon', 'Evening'] as const)
+                    .filter(slot => !presentSlots.has(slot))
+                    .map(slot => (
+                      <li key={`fallback-${slot}`} className="px-6 py-5 bg-slate-50">
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{slot}</span>
+                        <p className="text-sm text-slate-400 italic mt-2 mb-3">{fallbackCopy[slot]}</p>
+                        <a href={exploreUrl} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-slate-500 font-medium hover:text-slate-700 hover:underline">
+                          📍 Explore {dayCityName}, {countryName}
                         </a>
-                      )}
-                    </div>
+                      </li>
+                    ))
 
-                    {/* Narrative */}
-                    <p className="text-sm text-slate-600 leading-relaxed mb-3">{block.activity_narrative}</p>
-
-                    {/* Logistics */}
-                    <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600">
-                      <span className="font-semibold text-slate-700">📋 Logistics: </span>
-                      {block.ticketing_and_logistics}
-                    </div>
-
-                    {/* Verified note */}
-                    {!block.verified && block.verified_note && (
-                      <p className="mt-1.5 text-xs text-slate-400 italic">{block.verified_note}</p>
-                    )}
-
-                    {/* Demographic note */}
-                    {block.demographic_catering_note && (
-                      <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-                        <span className="font-semibold">👶 Note: </span>
-                        {block.demographic_catering_note}
-                      </div>
-                    )}
-
-                    {/* Concierge dining card */}
-                    {!block.maps_link && isMeal && (
-                      <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
-                        <p className="text-xs text-amber-800 italic mb-2">🍽️ {mealCopy}</p>
-                        <a
-                          href={conciergeMapUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-amber-700 font-medium hover:text-amber-900 hover:underline"
-                        >
-                          → Browse restaurants in {cityName}
-                        </a>
-                      </div>
-                    )}
-                  </li>
-                  )
-                })}
+                  return [...renderedBlocks, ...fallbackBlocks]
+                })()}
               </ul>
             </div>
           ))}

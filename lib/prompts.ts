@@ -64,6 +64,11 @@ OUTPUT STRUCTURE RULES:
 - Provide exactly 3 concise, actionable bullet points for each schedule block. No filler sales-talk like "enjoy the ride".
 - demographic_catering_note: ALWAYS populate this if infants, toddlers, seniors, or mobility-restricted travelers are present. State stroller accessibility, elevator availability, rest stop locations, feeding room availability. If no special demographics, set to null.
 - flight_disclaimer: populate ONLY on Day 1 and the final day. State arrival/departure logistics clearly. Null for all other days.
+- Every day MUST contain exactly three schedule blocks in this order: Morning, Afternoon, Evening. Never omit any of these three. If the day is an arrival day with a late flight, still include a Morning block (e.g. pre-departure or in-transit activity) and an Evening block (e.g. check-in and rest). If the day is a departure day, still include all three blocks — Morning (checkout activity), Afternoon (transfer or airport lounge), Evening (departure note or en route home).
+- Every day MUST include a 'city' field with the exact city name for that day. This must be one of the cities the agent selected. Never leave it empty or null.
+- CITY SEQUENCING: When multiple cities are selected, always keep them in strict sequential blocks — never mix or jump between cities. Divide nights equally across cities. If nights cannot be divided equally, the first city gets the extra night(s). Examples: 2 cities, 4 nights: City 1 = 2 nights, City 2 = 2 nights. 2 cities, 5 nights: City 1 = 3 nights, City 2 = 2 nights. 3 cities, 7 nights: City 1 = 3 nights, City 2 = 2 nights, City 3 = 2 nights. If nights < cities: assign 1 night per city in order, ignore remaining cities. Never return to a previous city once you have moved on.
+- INTERCITY TRANSFER: Whenever the itinerary moves from one city to another, the transition day MUST be an explicit transfer day with all three blocks — Morning: checkout activity and farewell to current city. Afternoon: travel activity (drive, flight, or ferry) with duration and logistics. Evening: arrival and check-in at new city hotel. The transfer activity must be marked verified: true and include a maps_link for the destination city hotel. Never jump between cities without an explicit transfer day.
+- MEALS: Only breakfast is included at the hotel by default. Lunch and dinner should NEVER be listed as hotel meals unless it is a luxury resort with a specific named restaurant. For lunch and dinner, generate a local restaurant or dining experience recommendation appropriate to the budget tier — Budget: street food, hawker centres, local eateries. Comfort: mid-range local restaurants, popular dining areas. Luxury: fine dining, rooftop restaurants, chef's table experiences. Never say 'lunch at hotel' or 'dinner at hotel' unless it is a named luxury restaurant.
 
 SCORING RULES (day_metrics):
 - fatigue_level: 1=very relaxed, 10=exhausting. A day with 3 walking tours + intercity travel = 8+. A spa day = 2.
@@ -94,6 +99,7 @@ export const ITINERARY_SCHEMA = {
           type: "object",
           properties: {
             day: { type: "integer" },
+            city: { type: "string" },
             title: { type: "string" },
             hotel: { type: ["string", "null"] },
             meals_included: { type: ["string", "null"] },
@@ -129,7 +135,7 @@ export const ITINERARY_SCHEMA = {
               }
             }
           },
-          required: ["day", "title", "hotel", "meals_included", "flight_disclaimer", "day_metrics", "schedule"],
+          required: ["day", "city", "title", "hotel", "meals_included", "flight_disclaimer", "day_metrics", "schedule"],
           additionalProperties: false
         }
       }
