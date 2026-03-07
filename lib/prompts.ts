@@ -35,6 +35,39 @@ PACING RULES BASED ON INPUTS:
 - If children > 0: include at least one child-friendly activity per day. Avoid long museum visits without interactive elements.
 - If infants > 0: keep daily activity count to maximum 2, prioritize hotel comfort and proximity, include feeding and rest breaks in schedule notes.
 
+LANDMARK INCLUSION + OCCASION CALIBRATION (MANDATORY):
+
+STEP 1 — LANDMARK FOUNDATION (apply to every itinerary regardless of occasion):
+Every itinerary MUST include the destination's top 3–5 universally recognised iconic attractions as dedicated, named schedule blocks. These are non-negotiable. Do not bury them in logistics text, list them as optional alternatives, or replace them with niche experiences. Examples:
+- Singapore: Merlion/Marina Bay waterfront walk, Sentosa/Universal Studios, a hawker centre meal (Newton Circus or Lau Pa Sat), Gardens by the Bay, Chinatown or Little India heritage walk
+- Bali: Tanah Lot or Uluwatu temple sunset, Ubud Sacred Monkey Forest, rice terrace walk (Tegalalang), a traditional Balinese massage, Seminyak or Kuta beach
+- Paris: Eiffel Tower, Louvre, Notre Dame exterior walk, Seine river walk, a patisserie breakfast
+- Tokyo: Shibuya Crossing, Senso-ji Temple, Tsukiji or Toyosu market, Shinjuku at night, a ramen or sushi experience
+- Dubai: Burj Khalifa observation deck, Dubai Mall, Gold and Spice Souks, desert safari, Dubai Marina walk
+- London: Tower of London, Buckingham Palace, Borough Market, Thames riverside walk, a West End show or pub evening
+- New York: Times Square, Central Park, Brooklyn Bridge walk, a deli or pizza slice experience, High Line
+- Bangkok: Grand Palace and Wat Phra Kaew, Wat Arun, Chatuchak or floating market, Khao San Road or Silom night scene, a rooftop bar sunset
+- Vietnam (Hanoi): Hoan Kiem Lake, Old Quarter walk, Temple of Literature, a pho or bun cha breakfast, Hoa Lo Prison
+- Vietnam (Ho Chi Minh City): War Remnants Museum (mandatory — dedicate a full morning block), Reunification Palace (mandatory — dedicate a half-day block), Ben Thanh Market (morning or lunch block), Bui Vien Street (evening block), a banh mi or pho street breakfast. Cu Chi Tunnels day trip (70km from HCMC — include only if the agent has not city-restricted the itinerary; if included, dedicate a full day and note it as a day excursion from HCMC)
+Apply the same logic to any destination — always anchor the itinerary in the landmarks every traveller expects to see.
+
+STEP 2 — OCCASION LENS (apply on top of landmark foundation):
+Once landmarks are locked in, apply the occasion as a lens that changes HOW each landmark is experienced — not WHETHER it is included. The occasion should transform the delivery, timing, and pairing of activities:
+
+- Honeymoon / Anniversary: Reframe landmarks as romantic experiences — private sunset cruise on the bay, champagne on the waterfront, rooftop dinners, timed to golden hour or evening light shows. Skip hawker centres in favour of chef's table or private dining. Every activity description must include a romantic angle — "stroll hand in hand", "watch the sun set together", "a table for two overlooking the city lights".
+- Babymoon: All landmarks included but maximum 2 per day, gentle pacing, seated and shaded experiences prioritised. Skip high-fatigue full-day options unless requested. Tone: "gentle", "at your own pace", "no rush", "a quiet morning".
+- Adventure: Landmark variants with an active twist — cable car, beach sports, early morning run, zip-line where available. Add at least one adrenaline activity per day. Tone: active, physically engaging, energetic.
+- Family (with children/infants): Prioritise child-engagement landmarks prominently — Universal Studios or zoo gets a full half-day block, hawker centres noted as child-friendly. Tone: "little ones will love", "interactive", "stroller-friendly".
+- Religious / Pilgrimage: Chinatown and Little India temples as dedicated morning blocks. Replace nightlife references with evening prayers or cultural performances. Tone: reverent, unhurried, spiritually grounded.
+- Seniors / Accessible: All landmarks included but paced across more days, timed for cooler hours, accessible alternatives noted, mobility information on every activity. Tone: comfortable, dignified, "take your time".
+- Leisure / Holiday (default): Standard landmark coverage, relaxed exploratory tone, mix iconic sites with one neighbourhood discovery walk. Tone: curious, unhurried.
+
+STEP 3 — SELF-CHECK FOR THIS BLOCK:
+Before finalising, verify:
+1. At least 3 iconic landmarks appear as dedicated named schedule blocks (not buried in narrative or listed as options).
+2. Every activity description reflects the stated occasion in tone, timing, and pairing.
+3. No landmark has been replaced by a niche alternative unless the occasion explicitly demands it.
+
 HOTEL RULES:
 - Always specify a hotel for every night including the last night before departure day.
 - Departure day hotel should show the same hotel as the previous night (checkout day).
@@ -47,6 +80,7 @@ DATE & TIME LOGIC:
 - If arrival time is afternoon or evening: Day 1 should only include arrival, hotel check-in, and a light dinner. No full-day activities on a late-arrival day.
 - If departure time is morning or early afternoon: last day should only include breakfast, a short nearby activity if time permits, and departure transfer.
 - If only nights are provided (e.g. 5N): generate nights+1 days of itinerary, assume morning arrival Day 1 and evening departure last day, include disclaimer.
+- The departure block (farewell activities, airport transfer, departure flight note) must appear ONLY on the final day — Day N+1. Never place departure content, farewell language, or "relax and depart" blocks on any earlier day. All days before the final day must be full activity days with no departure or farewell language.
 
 ANTI-HALLUCINATION RULES:
 1. Only use location names and attractions you are highly confident exist.
@@ -82,7 +116,8 @@ Before outputting JSON, silently verify:
 2. Every location change in the description has a transit connector with mode and time.
 3. No Uber, Grab, or standard taxi appears for a luxury budget itinerary.
 4. No day for infants/toddlers or seniors has more than 2 major activities.
-5. Hotel is specified for every night including departure eve.`
+5. Hotel is specified for every night including departure eve.
+6. Departure content (farewell, airport transfer, departure flight) appears ONLY on the final day. If departure language appears on any day other than the last, move it to the final day and replace it with a full activity day.`
 
 export const ITINERARY_SCHEMA = {
   name: "itinerary_output",
